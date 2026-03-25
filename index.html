@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>ESG 減脂挑戰：最終修復版</title>
+    <title>ESG 減脂挑戰：究極修復版</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #000; overflow: hidden; touch-action: none; font-family: "Microsoft JhengHei", sans-serif; }
@@ -25,29 +25,26 @@ let nextLevelScore = 100, currentLevel = 1, hasShield = false, shieldVisual, mov
 const game = new Phaser.Game(config);
 
 function preload() {
-    // 確：檔名與 GitHub 上完全一致
     this.load.image('run1', 'player_run1.png');
     this.load.image('run2', 'player_run2.png');
     this.load.image('food', 'food.png');
-    this.load.image('bgImg', 'BG.png'); // 這裡必須是大寫 BG.png
+    this.load.image('bgImg', 'BG.png');
 }
 
 function create() {
     isGameOver = false; isPaused = false; score = 0; currentLevel = 1; moveSpeed = -450; spawnRate = 1200; nextLevelScore = 100; hasShield = false;
-    const groundY = 650;
-
-    // 1. 建立背景並縮放 (設定在最底層 Depth: 0)
+    
+    // 背景
     bg = this.add.tileSprite(0, 0, 400, 700, 'bgImg').setOrigin(0, 0).setDepth(0);
-    // 假設你的背景圖很高，自動適應高度
     const bgScale = 700 / bg.height;
     bg.tileScaleX = bgScale;
     bg.tileScaleY = bgScale;
 
-    // 2. 地面
-    const ground = this.add.rectangle(200, groundY + 25, 400, 50, 0x000000, 0);
+    // 地面
+    const ground = this.add.rectangle(200, 650, 400, 100, 0x000000, 0);
     this.physics.add.existing(ground, true);
 
-    // 3. 人物動畫
+    // 動畫
     this.anims.create({
         key: 'run_anim',
         frames: [{ key: 'run1' }, { key: 'run2' }],
@@ -55,30 +52,27 @@ function create() {
         repeat: -1
     });
 
-    // 4. 玩家 (Depth: 10)
-    player = this.physics.add.sprite(80, groundY, 'run1').setDepth(10);
+    // 玩家
+    player = this.physics.add.sprite(80, 600, 'run1').setDepth(10);
     player.play('run_anim');
     player.setOrigin(0.5, 1);
     player.setDisplaySize(60, 60);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(30, 50);
 
-    // 5. 護盾 (Depth: 11)
-    shieldVisual = this.add.circle(0, 0, 35, 0x4fc3f7, 0.4).setDepth(11);
+    // 護盾
+    shieldVisual = this.add.circle(0, 0, 35, 0x4fc3f7, 0.4).setDepth(11).setVisible(false);
     shieldVisual.setStrokeStyle(3, 0x01579b);
-    shieldVisual.setVisible(false);
 
-    // 6. 障礙物群組
     obstacles = this.physics.add.group();
 
     this.physics.add.collider(player, ground);
     this.physics.add.overlap(player, obstacles, hitObstacle, null, this);
 
-    // 7. UI (Depth: 100)
+    // UI
     scoreText = this.add.text(20, 40, '減脂里程: 0m', { fontSize: '24px', fill: '#ffffff', stroke: '#000', strokeThickness: 4 }).setDepth(100);
     levelText = this.add.text(20, 75, '挑戰等級: LV.1', { fontSize: '18px', fill: '#81c784', stroke: '#000', strokeThickness: 3 }).setDepth(100);
 
-    // 啟動生成器
     startSpawning(this);
 
     this.input.on('pointerdown', () => {
@@ -91,7 +85,7 @@ function create() {
 function update() {
     if (isGameOver || isPaused) return;
 
-    bg.tilePositionX += 5; // 讓背景動起來
+    bg.tilePositionX += 5;
     score += 0.25;
     scoreText.setText('減脂里程: ' + Math.floor(score) + 'm');
     
@@ -100,37 +94,50 @@ function update() {
 
     moveSpeed -= 0.1;
 
-    // 升級邏輯
     if (score >= nextLevelScore) {
         showLevelUpMenu(this);
+    }
+
+    if (player.body.touching.down || player.body.blocked.down) {
+        if (!player.anims.isPlaying) player.play('run_anim');
+    } else {
+        player.stop();
     }
 }
 
 function spawnObstacle(scene) {
     if (isGameOver || isPaused) return;
     const type = Phaser.Math.Between(0, 2);
-    let y = (type === 0) ? 650 : (type === 1 ? 540 : 430);
+    let y = (type === 0) ? 620 : (type === 1 ? 520 : 420);
     
-    // 確保障礙物 Depth 高於背景 (Depth: 20)
-    const obs = scene.add.sprite(450, y, 'food').setDepth(20);
-    obs.setOrigin(0.5, 1);
-    obs.setDisplaySize(60, 60);
-    scene.physics.add.existing(obs);
-    obs.body.setAllowGravity(false);
-    obs.body.setVelocityX(moveSpeed - Phaser.Math.Between(0, 100));
-    obstacles.add(obs);
+    // 優先放圖片，如果圖片沒出來會變色塊
+    const obs = scene.physics.add.sprite(450, y, 'food').setDepth(20);
+    
+    // 如果圖片載入失敗，給它一個顏色方塊當保險
+    if (!obs.texture || obs.texture.key === '__MISSING') {
+        obs.destroy();
+        const fallback = scene.add.rectangle(450, y, 50, 50, 0xff0000).setDepth(20);
+        scene.physics.add.existing(fallback);
+        fallback.body.setAllowGravity(false);
+        fallback.body.setVelocityX(moveSpeed);
+        obstacles.add(fallback);
+    } else {
+        obs.setOrigin(0.5, 1);
+        obs.setDisplaySize(50, 50);
+        obs.body.setAllowGravity(false);
+        obs.body.setVelocityX(moveSpeed);
+        obstacles.add(obs);
+    }
 }
 
 function showLevelUpMenu(scene) {
     isPaused = true;
     scene.physics.pause();
-    timerEvent.paused = true;
+    if(timerEvent) timerEvent.paused = true;
     player.stop();
     
     const menuGroup = scene.add.container(0, 0).setDepth(200);
-    const menuBg = scene.add.graphics();
-    menuBg.fillStyle(0x000000, 0.85);
-    menuBg.fillRect(0, 0, 400, 700);
+    const menuBg = scene.add.graphics().fillStyle(0x000000, 0.85).fillRect(0, 0, 400, 700);
     menuGroup.add(menuBg);
 
     const title = scene.add.text(200, 150, `🏆 LV.${currentLevel} 覺醒`, { fontSize: '32px', color: '#81c784', fontWeight: 'bold' }).setOrigin(0.5);
@@ -150,12 +157,13 @@ function showLevelUpMenu(scene) {
         btn.on('pointerdown', () => {
             opt.action();
             menuGroup.destroy();
+            // 關鍵修正：確實解除暫停狀態
             currentLevel++;
             nextLevelScore *= 2;
             levelText.setText('挑戰等級: LV.' + currentLevel);
-            isPaused = false;
+            isPaused = false; 
             scene.physics.resume();
-            timerEvent.paused = false;
+            if(timerEvent) timerEvent.paused = false;
         });
     });
 }
@@ -169,12 +177,9 @@ function hitObstacle(p, obs) {
     if (isGameOver || isPaused) return;
     if (hasShield) { hasShield = false; shieldVisual.setVisible(false); obs.destroy(); return; }
     isGameOver = true; this.physics.pause(); player.stop(); player.setTint(0xff0000); this.cameras.main.shake(300, 0.04);
-    
-    const resultBox = this.add.graphics().setDepth(300);
-    resultBox.fillStyle(0x000000, 0.9);
-    resultBox.fillRoundedRect(30, 180, 340, 380, 15);
+    const resultBox = this.add.graphics().setDepth(300).fillStyle(0x000000, 0.9).fillRoundedRect(30, 180, 340, 380, 15);
     this.add.text(200, 230, `【ESG 結算戰報】`, { fontSize: '28px', fill: '#81c784', fontWeight: 'bold' }).setOrigin(0.5).setDepth(301);
-    this.add.text(200, 370, `最終里程：${Math.floor(score)} m\n\n「您的每一小步，\n  都是公司淨零的一大步！」`, { fontSize: '18px', fill: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(301);
+    this.add.text(200, 370, `最終里程：${Math.floor(score)} m\n\n「您可以做得更好！」`, { fontSize: '18px', fill: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(301);
     this.add.text(200, 500, '◀ 再次挑戰 ▶', { fontSize: '22px', fill: '#fff', backgroundColor: '#d32f2f', padding: 12 }).setOrigin(0.5).setInteractive().setDepth(301).on('pointerdown', () => window.location.reload());
 }
 </script>
