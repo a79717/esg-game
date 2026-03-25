@@ -117,7 +117,7 @@ function update() {
     if (score >= nextLevelScore) {
         showLevelUpMenu(this);
         currentLevel++;
-        nextLevelScore *= 1.2; 
+        nextLevelScore *= 1.5; 
         levelText.setText('挑戰等級: LV.' + currentLevel);
         nextLevelText.setText(`下一目標: ${nextLevelScore}m`);
     }
