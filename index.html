@@ -132,7 +132,7 @@ function spawnObstacle(scene) {
     
     const obs = scene.add.sprite(450, y, 'food');
     obs.setOrigin(0.5, 1);
-    obs.setDisplaySize(50, 50); // 調整障礙物大小
+    //obs.setDisplaySize(50, 50); // 調整障礙物大小
     scene.physics.add.existing(obs);
     obs.body.setAllowGravity(false);
     obs.body.setVelocityX(moveSpeed - Phaser.Math.Between(0, 100));
