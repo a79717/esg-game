@@ -192,7 +192,7 @@ function showLevelUpMenu(scene) {
     const options = [
         { title: '🛡️ 減脂護盾', desc: '抵擋一次傷害', action: () => { hasShield = true; shieldVisual.setVisible(true); } },
         { title: '⚡️ 節能加速', desc: '衝刺+50m但速度提升', action: () => { score += 50; moveSpeed -= 150; } },
-        { title: '📉 垃圾減量', desc: '障礙物頻率降低', action: () => { spawnRate += 300; startSpawning(scene); } }
+        { title: '📉 垃圾食物減量', desc: '障礙物頻率降低', action: () => { spawnRate += 300; startSpawning(scene); } }
     ];
 
     options.forEach((opt, index) => {
