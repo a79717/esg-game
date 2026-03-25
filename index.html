@@ -19,34 +19,58 @@ const config = {
     scene: { preload: preload, create: create, update: update }
 };
 
-let player, obstacles, scoreText, levelText, score = 0, isGameOver = false, isPaused = false;
-let nextLevelScore = 100; // 初始門檻
-let currentLevel = 1;    // 當前等級
+// --- 全域變數 ---
+let player, obstacles, scoreText, levelText, nextLevelText, score = 0, isGameOver = false, isPaused = false;
+let nextLevelScore = 100; 
+let currentLevel = 1;
 let hasShield = false; 
 let shieldVisual; 
 let moveSpeed = -450; 
 let spawnRate = 1200; 
-let timerEvent;
+let timerEvent, bg;
 
 const game = new Phaser.Game(config);
 
-function preload() {}
+// --- 1. 資源預載 (根據你上傳的檔名) ---
+function preload() {
+    this.load.image('run1', 'player_run1.png');
+    this.load.image('run2', 'player_run2.png');
+    this.load.image('food', 'food.png');
+    this.load.image('bgImg', 'BG.png'); // 注意大小寫
+}
 
+// --- 2. 場景建立 ---
 function create() {
     isGameOver = false; isPaused = false; score = 0; currentLevel = 1;
     moveSpeed = -450; spawnRate = 1200; nextLevelScore = 100; hasShield = false;
 
     const groundY = config.scale.height - 50;
-    this.cameras.main.setBackgroundColor('#f1f8e9');
 
-    const ground = this.add.rectangle(200, groundY + 25, 400, 50, 0x66bb6a);
+    // 建立捲動背景
+    bg = this.add.tileSprite(0, 0, 400, 700, 'bgImg').setOrigin(0, 0);
+
+    // 地面 (透明判定，配合背景圖)
+    const ground = this.add.rectangle(200, groundY + 25, 400, 50, 0x66bb6a, 0); 
     this.physics.add.existing(ground, true);
 
-    player = this.add.rectangle(80, groundY - 40, 40, 40, 0x42a5f5);
-    this.physics.add.existing(player);
-    player.body.setCollideWorldBounds(true);
+    // 建立跑動動畫
+    this.anims.create({
+        key: 'run_anim',
+        frames: [{ key: 'run1' }, { key: 'run2' }],
+        frameRate: 10,
+        repeat: -1
+    });
 
-    shieldVisual = this.add.circle(80, groundY - 40, 32, 0x4fc3f7, 0.4);
+    // 建立玩家 Sprite
+    player = this.physics.add.sprite(80, groundY - 40, 'run1');
+    player.play('run_anim');
+    player.setOrigin(0.5, 1);
+    player.setDisplaySize(60, 60); // 根據圖片比例微調大小
+    player.body.setCollideWorldBounds(true);
+    player.body.setSize(30, 50); // 縮小碰撞箱，讓遊戲更寬容
+
+    // 護盾特效
+    shieldVisual = this.add.circle(80, groundY - 40, 35, 0x4fc3f7, 0.4);
     shieldVisual.setStrokeStyle(3, 0x01579b);
     shieldVisual.setVisible(false);
 
@@ -54,15 +78,14 @@ function create() {
     this.physics.add.collider(player, ground);
     this.physics.add.overlap(player, obstacles, hitObstacle, null, this);
 
-    // UI
-    scoreText = this.add.text(20, 40, '減脂里程: 0m', { fontSize: '22px', fill: '#1b5e20', fontWeight: 'bold' });
-    levelText = this.add.text(20, 70, '挑戰等級: LV.1', { fontSize: '18px', fill: '#2e7d32' });
-    
-    // 下次升級提示（給玩家目標感）
-    nextLevelText = this.add.text(20, 95, `下一目標: 100m`, { fontSize: '14px', fill: '#666' });
+    // UI 文字
+    scoreText = this.add.text(20, 40, '減脂里程: 0m', { fontSize: '24px', fill: '#ffffff', fontWeight: 'bold', stroke: '#000', strokeThickness: 4 });
+    levelText = this.add.text(20, 75, '挑戰等級: LV.1', { fontSize: '18px', fill: '#81c784', fontWeight: 'bold', stroke: '#000', strokeThickness: 3 });
+    nextLevelText = this.add.text(20, 105, `下一目標: 100m`, { fontSize: '14px', fill: '#fff', stroke: '#000', strokeThickness: 2 });
 
     startSpawning(this);
 
+    // 點擊跳躍
     this.input.on('pointerdown', () => {
         if (!isGameOver && !isPaused && (player.body.touching.down || player.body.blocked.down)) {
             player.body.setVelocityY(-950);
@@ -70,17 +93,12 @@ function create() {
     });
 }
 
-function startSpawning(scene) {
-    if (timerEvent) timerEvent.remove();
-    timerEvent = scene.time.addEvent({
-        delay: spawnRate,
-        callback: () => spawnObstacle(scene),
-        loop: true
-    });
-}
-
+// --- 3. 遊戲更新循環 ---
 function update() {
     if (isGameOver || isPaused) return;
+
+    // 背景捲動
+    bg.tilePositionX += 3;
 
     score += 0.25;
     scoreText.setText('減脂里程: ' + Math.floor(score) + 'm');
@@ -88,14 +106,20 @@ function update() {
     shieldVisual.x = player.x;
     shieldVisual.y = player.y;
 
-    moveSpeed -= 0.08;
+    moveSpeed -= 0.1; // 難度緩慢提升
 
-    // --- 核心修改：倍數觸發機制 ---
+    // 動態調整動畫播放 (跳躍時停止)
+    if (player.body.touching.down || player.body.blocked.down) {
+        if (!player.anims.isPlaying) player.play('run_anim');
+    } else {
+        player.stop();
+    }
+
+    // 倍數觸發升級 (100 -> 200 -> 400...)
     if (score >= nextLevelScore) {
         showLevelUpMenu(this);
         currentLevel++;
-        nextLevelScore *= 2; // 關鍵修改：距離加倍 (100 -> 200 -> 400 -> 800)
-        
+        nextLevelScore *= 2; 
         levelText.setText('挑戰等級: LV.' + currentLevel);
         nextLevelText.setText(`下一目標: ${nextLevelScore}m`);
     }
@@ -104,20 +128,22 @@ function update() {
 function spawnObstacle(scene) {
     if (isGameOver || isPaused) return;
     const type = Phaser.Math.Between(0, 2);
-    let y = (type === 0) ? config.scale.height - 50 : (type === 1 ? config.scale.height - 150 : config.scale.height - 260);
+    let y = (type === 0) ? config.scale.height - 50 : (type === 1 ? config.scale.height - 160 : config.scale.height - 270);
     
-    const obs = scene.add.rectangle(450, y, 35, 50, 0xef5350);
+    const obs = scene.add.sprite(450, y, 'food');
     obs.setOrigin(0.5, 1);
-    obstacles.add(obs);
+    obs.setDisplaySize(50, 50); // 調整障礙物大小
     scene.physics.add.existing(obs);
     obs.body.setAllowGravity(false);
     obs.body.setVelocityX(moveSpeed - Phaser.Math.Between(0, 100));
+    obstacles.add(obs);
 }
 
 function showLevelUpMenu(scene) {
     isPaused = true;
     scene.physics.pause();
     timerEvent.paused = true;
+    player.stop();
     
     const menuGroup = scene.add.container(0, 0);
     const menuBg = scene.add.graphics();
@@ -129,11 +155,6 @@ function showLevelUpMenu(scene) {
         fontSize: '32px', color: '#81c784', fontWeight: 'bold' 
     }).setOrigin(0.5);
     menuGroup.add(title);
-
-    const subTitle = scene.add.text(200, 200, `距離下個等級還需 ${nextLevelScore}m`, { 
-        fontSize: '16px', color: '#aaa'
-    }).setOrigin(0.5);
-    menuGroup.add(subTitle);
 
     const options = [
         { title: '🛡️ 減脂護盾', desc: '獲得抵擋一次傷害的機會', action: () => { hasShield = true; shieldVisual.setVisible(true); } },
@@ -160,6 +181,15 @@ function showLevelUpMenu(scene) {
     });
 }
 
+function startSpawning(scene) {
+    if (timerEvent) timerEvent.remove();
+    timerEvent = scene.time.addEvent({
+        delay: spawnRate,
+        callback: () => spawnObstacle(scene),
+        loop: true
+    });
+}
+
 function hitObstacle(p, obs) {
     if (isGameOver || isPaused) return;
     
@@ -172,9 +202,14 @@ function hitObstacle(p, obs) {
 
     isGameOver = true;
     this.physics.pause();
+    player.stop();
+    player.setTint(0xff0000);
     this.cameras.main.shake(300, 0.04);
 
     const finalDist = Math.floor(score);
+    const calories = (finalDist * 0.05).toFixed(1);
+    const co2 = (finalDist * 0.0002).toFixed(4);
+
     const resultBox = this.add.graphics();
     resultBox.fillStyle(0x000000, 0.9);
     resultBox.fillRoundedRect(30, 180, 340, 380, 15);
@@ -184,12 +219,13 @@ function hitObstacle(p, obs) {
     const reportText = 
         `🏃 最終里程：${finalDist} m\n` +
         `⭐ 達成等級：LV.${currentLevel}\n\n` +
-        `「下次目標是 LV.${currentLevel + 1} 嗎？」\n\n` +
+        `🔥 消耗熱量：${calories} kcal\n` +
+        `🌿 減碳貢獻：${co2} kg\n\n` +
         `您的減脂數據已記錄在\n公司 ESG 貢獻榜中！`;
 
-    this.add.text(200, 360, reportText, { fontSize: '20px', fill: '#ffffff', align: 'center', lineSpacing: 10 }).setOrigin(0.5);
+    this.add.text(200, 370, reportText, { fontSize: '18px', fill: '#ffffff', align: 'center', lineSpacing: 8 }).setOrigin(0.5);
 
-    const restartBtn = this.add.text(200, 500, '◀ 再次挑戰 ▶', { 
+    this.add.text(200, 500, '◀ 再次挑戰 ▶', { 
         fontSize: '22px', fill: '#fff', backgroundColor: '#d32f2f', padding: 12 
     }).setOrigin(0.5).setInteractive().on('pointerdown', () => window.location.reload());
 }
