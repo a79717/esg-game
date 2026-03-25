@@ -170,7 +170,7 @@ function update() {
         showLevelUpMenu(this);
 
         currentLevel++;
-        nextLevelScore *= 2;
+        nextLevelScore *= 1.5;
 
         levelText.setText('挑戰等級: LV.' + currentLevel);
         nextLevelText.setText('下一目標: ' + nextLevelScore + 'm');
@@ -252,7 +252,7 @@ function showLevelUpMenu(scene) {
 
     menuGroup.add(title);
 
-    const subTitle = scene.add.text(200, 200, `下一個門檻：${nextLevelScore * 1.2}m`, {
+    const subTitle = scene.add.text(200, 200, `下一個門檻：${nextLevelScore * 1.5}m`, {
         fontSize: '16px',
         color: '#aaaaaa'
     }).setOrigin(0.5);
